@@ -1,14 +1,13 @@
 package com.shine.pc;
 
-/**
- * 线程之间的通信问题：生产者和消费者问题！等待唤醒，通知唤醒
- * 线程交替执行A,B操作同一个变量 num =0
- *A num + 1
- * B num - 1
- * */
-public class A {
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+//JUC版本的生产消费者模式
+public class B {
     public static void main(String[] args) {
-        Data data = new Data();
+        Data2 data = new Data2();
         new Thread(()->{
             for (int i = 0; i < 1000; i++) {
                 try {
@@ -50,33 +49,49 @@ public class A {
     }
 }
 
-/**
- * 判断等待、业务、通知
- * **/
-class Data{  //数字、资源类
+class Data2{
     private int number = 0;
 
-    public synchronized void increment() throws InterruptedException {
-        System.out.println(Thread.currentThread().getName()+"已经调用了+方法");
-        while(number!=0){ //防止虚假唤醒问题
-            this.wait(); //将会释放掉锁
+    Lock lock = new ReentrantLock();
+    Condition condition = lock.newCondition();
+
+
+    public  void increment() throws InterruptedException {
+        lock.lock();
+        try{
+            while(number!=0){ //防止虚假唤醒问题
+                condition.await(); //等待
+            }
+            number++;
+            System.out.println(Thread.currentThread().getName()+"=>"+number);
+            //通知其他线程，我+1完毕了
+            condition.signalAll();
+
+        }catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            lock.unlock(); //释放锁
         }
-        number++;
-        System.out.println(Thread.currentThread().getName()+"=>"+number);
-        //通知其他线程，我+1完毕了
-        this.notify();
+
+
     }
 
     public synchronized void decrement() throws InterruptedException {
-        System.out.println(Thread.currentThread().getName()+"已经调用了-方法");
-        while(number==0){
-           //等待
-            this.wait();
+        lock.lock();
+
+        try {
+            while(number==0){
+                condition.await();
+            }
+            number--;
+            System.out.println(Thread.currentThread().getName()+"=>"+number);
+            //通知其他线程，我-1完毕了
+            condition.signalAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
-        number--;
-        System.out.println(Thread.currentThread().getName()+"=>"+number);
-        //通知其他线程，我-1完毕了
-        this.notify();
     }
 
 }
